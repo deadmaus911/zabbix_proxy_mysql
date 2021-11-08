@@ -1,0 +1,79 @@
+version: '3.5'
+services:
+ zabbix-proxy-mysql:
+  image: zabbix/zabbix-proxy-mysql:ubuntu-5.4-latest
+  ports:
+   - "10051:10051"
+  volumes:
+   - /etc/localtime:/etc/localtime:ro
+   - ./zbx_env/usr/lib/zabbix/externalscripts:/usr/lib/zabbix/externalscripts:ro
+   - ./zbx_env/var/lib/zabbix/modules:/var/lib/zabbix/modules:ro
+   - ./zbx_env/var/lib/zabbix/enc:/var/lib/zabbix/enc:ro
+   - ./zbx_env/var/lib/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+   - ./zbx_env/var/lib/zabbix/mibs:/var/lib/zabbix/mibs:ro
+  env_file:
+   - ./env_vars/.env_db_mysql_proxy
+   - ./env_vars/.env_prx
+   - ./env_vars/.env_prx_mysql
+  depends_on:
+   - mysql-server
+  environment:
+   MYSQL_ROOT_PASSWORD: root_pwd
+   MYSQL_DATABASE: zabbix
+   MYSQL_USER: zabbix
+   MYSQL_PASSWORD: zabbix
+  networks:
+   zbx_net_backend:
+    aliases:
+     - zabbix-proxy-mysql
+     - zabbix-proxy-ubuntu-mysql
+     - zabbix-proxy-mysql-ubuntu
+   zbx_net_frontend:
+
+ zabbix-java-gateway:
+  image: zabbix/zabbix-java-gateway:ubuntu-5.4-latest
+  ports:
+   - "10052:10052"
+  volumes:
+   - ./zbx_env/usr/sbin/zabbix_java/ext_lib:/usr/sbin/zabbix_java/ext_lib:rw
+  networks:
+   zbx_net_backend:
+  restart: unless-stopped
+    
+ mysql-server:
+  image: mysql:8.0
+  command:
+   - mysqld
+   - --character-set-server=utf8
+   - --collation-server=utf8_bin
+   - --default-authentication-plugin=mysql_native_password
+  volumes:
+   - ./zbx_env/var/lib/mysql:/var/lib/mysql:rw
+  environment:
+   MYSQL_ROOT_PASSWORD: root_pwd
+   MYSQL_DATABASE: zabbix
+   MYSQL_USER: zabbix
+   MYSQL_PASSWORD: zabbix
+  networks:
+   zbx_net_backend:
+  restart: unless-stopped
+    
+networks:
+  zbx_net_frontend:
+    driver: bridge
+
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.16.236.0/24
+  zbx_net_backend:
+    driver: bridge
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+    internal: true
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.16.237.0/24
